@@ -172,7 +172,7 @@ Adafruit_PCD8544 display = Adafruit_PCD8544(9, 8, 7, 5, 6);
 
 #define AHRS true         // set to false for basic data read
 #define SerialDebug true   // set to true to get Serial output for debugging
-#define LP 0.4
+#define LP 0.9
 // Set initial input parameters
 enum Ascale {
   AFS_2G = 0,
@@ -204,7 +204,7 @@ float aRes, gRes, mRes;      // scale resolutions per LSB for the sensors
 // Pin definitions
 int intPin = 12;  // These can be changed, 2 and 3 are the Arduinos ext int pins
 int myLed = 13; // Set up pin 13 led for toggling
-
+int16_t last_accel[3],last_gyro[3],last_mag[3];
 int16_t accelCount[3];  // Stores the 16-bit signed accelerometer sensor output
 int16_t gyroCount[3];   // Stores the 16-bit signed gyro sensor output
 int16_t magCount[3];    // Stores the 16-bit signed magnetometer sensor output
@@ -329,6 +329,9 @@ void setup()
     //dis//display.setCursor(0,30); //display.print("ASAZ "); //dis//display.setCursor(50,30); //display.print(magCalibration[2], 2);
     //display.display();
     delay(1000);  
+    readAccelData(last_accel); 
+      readGyroData(last_gyro);
+      readMagData(last_mag);
   }
   else
   {
@@ -526,8 +529,20 @@ void loop()
   
    if (readByte(MPU9250_ADDRESS, INT_STATUS) & 0x01) {  
         // On interrupt, check if data ready interrupt
+      readAccelData(accelCount); 
+      readGyroData(gyroCount);
+      readMagData(magCount);
+      for(int n=0;n<3;n++)
+      {
+        accelCount[n]=LP*last_accel[n]+(1-LP)*accelCount[n];
+        gyroCount[n]=LP*last_gyro[n]+(1-LP)*gyroCount[n];
+        magCount[n]=LP*last_mag[n]+(1-LP)*magCount[n];
+        last_accel[n]=accelCount[n];
+        last_gyro[n]=gyroCount[n];
+        last_mag[n]=magCount[n];
+      }
       
-        readAccelData(accelCount);  // Read the x/y/z adc values
+       // readAccelData(accelCount);  // Read the x/y/z adc values
         getAres();
         
         // Now we'll calculate the accleration value into actual g's
@@ -535,7 +550,7 @@ void loop()
         ay = (float)accelCount[1]*aRes; // - accelBias[1];   
         az = (float)accelCount[2]*aRes; // - accelBias[2];  
        
-        readGyroData(gyroCount);  // Read the x/y/z adc values
+        //readGyroData(gyroCount);  // Read the x/y/z adc values
         getGres();
      
         // Calculate the gyro value into actual degrees per second
@@ -543,7 +558,7 @@ void loop()
         gy = (float)gyroCount[1]*gRes;  
         gz = (float)gyroCount[2]*gRes;   
       
-        readMagData(magCount);  // Read the x/y/z adc values
+     //   readMagData(magCount);  // Read the x/y/z adc values
         getMres();
         magbias[0] =-15;// +470.;  // User environmental x-axis correction in milliGauss, should be automatically calculated
         magbias[1] = 530;//+120.;  // User environmental x-axis correction in milliGauss
